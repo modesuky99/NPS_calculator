@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NPS Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: url('Etisalat.png') no-repeat center center fixed;
+            background-size: cover;
+            color: #e0e0e0;
+            overflow: auto; /* Enable scrolling */
+            position: relative;
+        }
+        .container {
+            margin: 20px auto;
+            background: rgba(0, 0, 0, 0.8); /* Dark background for better contrast */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 800px;
+            position: relative;
+            backdrop-filter: blur(8px); /* Apply blur effect */
+            transition: opacity 0.5s ease;
+        }
+        input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            background: #333;
+            color: #e0e0e0;
+        }
+        input:focus {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            border-color: #4CAF50;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            display: none;
+        }
+        .popup {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4CAF50;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+            animation: popupAnimation 3s ease-out infinite;
+            z-index: 1000;
+            display: none; /* Hide initially */
+        }
+        @keyframes popupAnimation {
+            0% { opacity: 0; transform: translateY(20px); }
+            50% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(20px); }
+        }
+        @keyframes movePopup {
+            0% { transform: translateX(0) translateY(0); }
+            25% { transform: translateX(20vw) translateY(-20vh); }
+            50% { transform: translateX(-20vw) translateY(20vh); }
+            75% { transform: translateX(20vw) translateY(20vh); }
+            100% { transform: translateX(-20vw) translateY(-20vh); }
+        }
+        .randomPopup {
+            animation: movePopup 8s linear infinite;
+        }
+        #history {
+            margin-top: 20px;
+        }
+        #chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        #resetHistory {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #resetHistory:hover {
+            background-color: #d32f2f;
+        }
+        .loading {
+            display: none;
+            font-size: 18px;
+            margin: 20px 0;
+            color: #4CAF50;
+            animation: fadeInOut 1.5s ease-in-out infinite;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        #signature {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+            color: #e0e0e0;
+            font-weight: bold;
+            letter-spacing: 1px;
+            animation: fadeIn 1s ease-in-out, moveUp 2s ease-in-out infinite;
+            position: fixed;
+            bottom: 10px;
+            width: 100%;
+            left: 0;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes moveUp {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0); }
+        }
+        .fadeIn {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .fadeOut {
+            animation: fadeOut 0.5s ease-in-out;
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="page-title">NPS Calculator</h1>
+        <div id="input-section">
+            <input type="number" id="totalResponses" min="1" placeholder="Enter Total Responses">
+            <input type="number" id="detractors" min="0" placeholder="Enter Number of Detractors">
+            <button onclick="calculateNPS()">Calculate</button>
+        </div>
+        <div id="loading" class="loading">Calculating...</div>
+        <div id="result" class="fadeIn">
+            <p id="promoters">Promoter Percentage: 0%</p>
+            <p id="additionalPromoters">Additional Promoters Needed: 0</p>
+            <button onclick="goBack()">Go Back</button>
+        </div>
+        <div id="popup" class="popup randomPopup">Good Job! Keep Going!</div>
+        <div id="history">
+            <h2>History</h2>
+            <div id="chart-container">
+                <canvas id="historyChart"></canvas>
+            </div>
+            <button id="resetHistory" onclick="resetHistory()">Reset History</button>
+        </div>
+        <div id="signature">Created by M.Desuky</div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const targetPercentage = 88;
+        let historyChart;
+
+        function calculateNPS() {
+            const totalResponses = parseInt(document.getElementById('totalResponses').value, 10);
+            const detractors = parseInt(document.getElementById('detractors').value, 10);
+
+            if (isNaN(totalResponses) || isNaN(detractors) || totalResponses <= 0 || detractors < 0 || detractors > totalResponses) {
+                alert('Please enter valid values.');
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+            setTimeout(() => {
+                const promoters = totalResponses - detractors;
+                const promoterPercentage = (promoters / totalResponses) * 100;
+
+                // Calculate additional promoters needed
+                const neededPromoterPercentage = targetPercentage - promoterPercentage;
+                let additionalPromoters = 0;
+                if (neededPromoterPercentage > 0) {
+                    additionalPromoters = Math.ceil((neededPromoterPercentage / 100) * totalResponses / (1 - (targetPercentage / 100)));
+                }
+
+                // Hide input section and show result section with animation
+                document.getElementById('input-section').classList.add('fadeOut');
+                setTimeout(() => {
+                    document.getElementById('input-section').style.display = 'none';
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('result').classList.add('fadeIn');
+                }, 500); // Allow fadeOut animation to complete
+
+                // Display the results
+                document.getElementById('promoters').innerText = `Promoter Percentage: ${promoterPercentage.toFixed(2)}%`;
+                document.getElementById('additionalPromoters').innerText = `Additional Promoters Needed: ${additionalPromoters}`;
+
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+
+                // Show popup if target is reached
+                if (promoterPercentage >= targetPercentage) {
+                    document.getElementById('popup').style.display = 'block';
+                } else {
+                    document.getElementById('popup').style.display = 'none';
+                }
+
+                // Save to history
+                saveToHistory(totalResponses, detractors, promoterPercentage, additionalPromoters);
+            }, 1000); // Simulate a delay for loading animation
+        }
+
+        function goBack() {
+            // Show input section and hide result section with animation
+            document.getElementById('result').classList.add('fadeOut');
+            setTimeout(() => {
+                document.getElementById('result').style.display = 'none';
+                document.getElementById('input-section').style.display = 'block';
+                document.getElementById('input-section').classList.add('fadeIn');
+                document.getElementById('result').classList.remove('fadeOut');
+                document.getElementById('input-section').classList.remove('fadeIn');
+            }, 500); // Allow fadeOut animation to complete
+
+            // Clear the inputs
+            document.getElementById('totalResponses').value = '';
+            document.getElementById('detractors').value = '';
+
+            // Hide popup
+            document.getElementById('popup').style.display = 'none';
+        }
+
+        function saveToHistory(totalResponses, detractors, promoterPercentage, additionalPromoters) {
+            const history = JSON.parse(localStorage.getItem('npsHistory')) || [];
+
+            const entry = {
+                date: new Date().toLocaleString(),
+                totalResponses,
+                detractors,
+                promoterPercentage: promoterPercentage.toFixed(2),
+                additionalPromoters
+            };
+
+            history.push(entry);
+            localStorage.setItem('npsHistory', JSON.stringify(history));
+
+            displayHistory();
+        }
+
+        function displayHistory() {
+            const history = JSON.parse(localStorage.getItem('npsHistory')) || [];
+
+            const labels = history.map(entry => entry.date);
+            const data = history.map(entry => entry.promoterPercentage);
+
+            if (historyChart) {
+                historyChart.destroy();
+            }
+
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            historyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Promoter Percentage',
+                        data: data,
+                        borderColor: '#4CAF50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.2)',
+                        borderWidth: 2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                autoSkip: true,
+                                maxTicksLimit: 10
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        function resetHistory() {
+            localStorage.removeItem('npsHistory');
+            displayHistory();
+        }
+
+        // Display history on page load
+        window.onload = function() {
+            displayHistory();
+        };
+    </script>
+</body>
+</html>
